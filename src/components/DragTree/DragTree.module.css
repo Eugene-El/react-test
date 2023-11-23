@@ -1,0 +1,80 @@
+.dragTree {
+    --foreground-color: #eeeeee;
+    --background-hover-color: #384256;
+    --line-thickness: 4px;
+    --drag-line-color: #d20000;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    color: var(--foreground-color);
+
+    &>div {
+        width: 100%;
+    }
+}
+
+.dragTreeItem {
+
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: var(--line-thickness) solid transparent;
+
+    & * {
+        pointer-events: none;
+    }
+    & svg {
+        height: 100%;
+        transform: rotate(0);
+        transition: transform 0.4s;
+
+        & path {
+            fill: var(--foreground-color);
+        }
+        &.open {
+            transform: rotate(90deg);
+        }
+    }
+    &:hover {
+        background-color: var(--background-hover-color);
+    }
+    &.dragInProcess {
+        opacity: 0.4;
+    }
+    &.overItem {
+        border: var(--line-thickness) dotted var(--foreground-color);
+    }
+}
+
+
+
+.dragTreeItemTree {
+
+    margin-left: 1em;
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.4s;
+    
+    &>div {
+        overflow: hidden;
+    }
+    &.open {
+        grid-template-rows: 1fr;
+    }
+}
+
+.spot {
+    background-color: transparent;
+    height: var(--line-thickness);
+    border-radius: var(--line-thickness);
+
+    &.over {
+        cursor: move;
+        background-color: var(--drag-line-color);
+    }
+}
