@@ -5,6 +5,7 @@ import { IDragTreeProps } from "./interfaces/IDragTreeProps";
 import { IDragTreeState } from "./interfaces/IDragTreeState";
 
 type SpotPosition = "before" | "after";
+type DragPosition = SpotPosition | "inside";
 
 export class DragTree extends React.Component<IDragTreeProps, IDragTreeState> {
 
@@ -13,6 +14,14 @@ export class DragTree extends React.Component<IDragTreeProps, IDragTreeState> {
         this.state = {
             items: props.items
         };
+    }
+
+    componentDidUpdate(prevProps: IDragTreeProps) {
+        if (this.props !== prevProps) {
+            this.setState({
+                items: this.props.items
+            });
+        }
     }
     
     render() {
@@ -35,21 +44,17 @@ export class DragTree extends React.Component<IDragTreeProps, IDragTreeState> {
                     e.currentTarget.classList.remove(classes.overItem);
                     this.dropOnItem(item);
                 }}
-                onDragOver={this.dragOver}
+                onDragOver={(e) => this.dragOver(e, item, "inside")}
                 draggable="true">
                 <svg viewBox="0 0 24 24" className={item.open ? classes.open : ''}>
                     {items.length > 0 &&
                         <path xmlns="http://www.w3.org/2000/svg" d="M9.71069 18.2929C10.1012 18.6834 10.7344 18.6834 11.1249 18.2929L16.0123 13.4006C16.7927 12.6195 16.7924 11.3537 16.0117 10.5729L11.1213 5.68254C10.7308 5.29202 10.0976 5.29202 9.70708 5.68254C9.31655 6.07307 9.31655 6.70623 9.70708 7.09676L13.8927 11.2824C14.2833 11.6729 14.2833 12.3061 13.8927 12.6966L9.71069 16.8787C9.32016 17.2692 9.32016 17.9023 9.71069 18.2929Z" />
                     }
                 </svg>
-                <span
-                onDragOver={this.dragOver}
-                >{item.name}</span>
+                <span>{item.name}</span>
             </div>
             <div className={`${classes.dragTreeItemTree} ${item.open ? classes.open : ''}`}>
-                <div>
-                    {items.map(i => this.drawDragTreeItem(i))}
-                </div>
+                <div>{items.map(i => this.drawDragTreeItem(i))}</div>
             </div>
             {this.drawSpot(item, "after")}
         </div>;
@@ -59,7 +64,7 @@ export class DragTree extends React.Component<IDragTreeProps, IDragTreeState> {
         return <div className={classes.spot}
             onDragEnter={(e) => e.currentTarget.classList.add(classes.over)}
             onDragLeave={(e) => e.currentTarget.classList.remove(classes.over)}
-            onDragOver={this.dragOver}
+            onDragOver={(e) => this.dragOver(e, item, position)}
             onDrop={(e) => {
                 e.currentTarget.classList.remove(classes.over);
                 this.dropOnSpot(item, position);
@@ -106,6 +111,23 @@ export class DragTree extends React.Component<IDragTreeProps, IDragTreeState> {
         return undefined;
     }
 
+    protected calculateItemHeight(item: IDragTreeItemModel, plus: number = 0): number {
+        if (!item.items || item.items.length === 0)
+            return plus + 1;
+        return Math.max(...item.items.map(i => this.calculateItemHeight(i, plus + 1)));
+    }
+
+    protected calculateParentCount(item: IDragTreeItemModel, plus: number = 0): number {
+        const parent = this.findItemParent(item.id);
+        if (!parent)
+            return plus;
+        return this.calculateParentCount(parent, plus + 1);
+    }
+
+    protected itemIncudesId(item: IDragTreeItemModel, id: IdType): boolean {
+        return !!this.findItem(id, item.items ?? []);
+    }
+
     //#endregion
 
     protected toggleItem(id: IdType) {
@@ -137,11 +159,20 @@ export class DragTree extends React.Component<IDragTreeProps, IDragTreeState> {
         });
     }
 
-    protected dragOver(e: any) {
-        e.preventDefault();
+    protected dragOver(e: React.DragEvent<HTMLDivElement>, item: IDragTreeItemModel, position: DragPosition) {
+        if (this.state.dragItem && !this.itemIncudesId(this.state.dragItem, item.id)) {
+            if (!this.props.maxTreeHeight)
+                e.preventDefault();
+            else {
+                const dragItemHeight = this.calculateItemHeight(this.state.dragItem);
+                const container = position === "inside" ? item : this.findItemParent(item.id);
+                const parentCount = container ? this.calculateParentCount(container) : 0;
+                if ((dragItemHeight + parentCount) < this.props.maxTreeHeight)
+                    e.preventDefault();
+            }
+        }
         return false;
     }
-
 
     protected dropOnItem(item: IDragTreeItemModel) {
         if (!this.state.dragItem || this.state.dragItem.id === item.id)
@@ -151,6 +182,8 @@ export class DragTree extends React.Component<IDragTreeProps, IDragTreeState> {
 
         if (!item.items)
             item.items = [];
+        if (this.props.openItemOnDrop)
+            item.open = true;
 
         item.items.push(this.state.dragItem);
 
